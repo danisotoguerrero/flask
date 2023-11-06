@@ -41,9 +41,9 @@ def login():
     
     """ El usuario existe en la BD y coincide su contraseña """
     token = jwt.encode({'id': row[0],
-                        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=5)}, app.config['SECRET_KEY'])
+                        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=100)}, app.config['SECRET_KEY'])
 
-    return jsonify({"token": token, "username": auth.username })
+    return jsonify({"token": token, "username": auth.username, "id": row[0] })
 
 def token_required(func):
     @wraps(func)
@@ -51,17 +51,27 @@ def token_required(func):
         print(kwargs)
         token = None
 
-
         if 'x-access-token' in request.headers:
             token = request.headers['x-access-token']
         
         if not token:
             return jsonify({"message": "Falta el token"}), 401
         
+        user_id = None
+
+        if "user-id" in request.headers:
+            user_id = request.headers["user-id"]
+
+        if not user_id:
+            return jsonify ({"message": "Falta el usuario"}), 401
+        
         try:
             data = jwt.decode(token , app.config['SECRET_KEY'], algorithms = ['HS256'])
-            exp = data['exp']
-            id = data['id']
+            token_id = data['id']
+
+            if int(user_id) != int(token_id):
+                return jsonify({"message": "Error de id"}), 401
+            
         except Exception as e:
             print(e)
             return jsonify({"message": str(e)}), 401
@@ -147,8 +157,6 @@ def remove_person(id):
     cur.execute('DELETE FROM person WHERE id = {0}'.format(id))
     mysql.connection.commit()
     return jsonify({"message": "deleted", "id": id})
-
-
 
 
 
